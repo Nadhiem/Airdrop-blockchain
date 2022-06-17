@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity >=0.8.10;
+
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract ERC20ADROP is ERC20 {
+  mapping(address => bool) public _processedAirdrop;
+
+  address private _admin;
+  address[] public _AddressList;
+  uint256[] public _TokenAmountList;
+  uint256 public _maximumdropAmount;
+  uint256 public _currentdropAmount;
+
+  event AirdropProcessed(address _recipient, uint256 _amount, uint256 _date);
+
+  constructor() ERC20("Simple Token", "ST") {
+    _mint(msg.sender, 1000 * 10**18);
+    _admin = msg.sender;
+    _maximumdropAmount = totalSupply();
+  }
+
+  modifier onlyAdmin() {
+    require(msg.sender == _admin, "Only admin can perform this action");
+    _;
+  }
+
+  function addAddressForAirDrop(address _address, uint256 _amount)
+    public
+    onlyAdmin
+  {
+    require(_amount != 0, "Enter amount greater than Zero");
+
+    _AddressList.push(_address);
+
+    _TokenAmountList.push(_amount);
+  }
+
+  function claimToken(address _recipient,uint256 amt) external {
+    uint256 index;
+    uint8 flag = 1;
+    require(
+      _processedAirdrop[_recipient] == false,
+      "Claim arleady done!!"
+    );
+    amt = amt* 10**18;
+
+    for (uint256 i = 0; i < _AddressList.length; i++) {
+      if (_AddressList[i] == _recipient) {
+        index = i;
+        flag = 0;
+        break;
+      }
+    }
+
+    require(
+      flag == 0 || _AddressList[index] == _recipient,
+      "sorry!!! not eligible for the airdrop"
+    );
+
+    require(
+      _currentdropAmount + _TokenAmountList[index] <= _maximumdropAmount,
+      "Airdropped 100% of the allocated amount"
+    );
+
+    require(_TokenAmountList[index] >= amt, "Insufficient Token Allocation");
+
+    _currentdropAmount += amt;
+    _TokenAmountList[index] -= amt;
+    _transfer(_admin, _recipient, amt);
+    if(_TokenAmountList[index] == 0){
+      _processedAirdrop[_recipient] = true;
+    }
+    emit AirdropProcessed(
+      _recipient,
+      amt,
+      block.timestamp
+    );
+  }
+
+
+  function getCurrentAirdropAmount() external view returns (uint256) {
+    return _currentdropAmount;
+  }
+
+  function getWhitelistedAddress() external view returns (address[] memory) {
+    return _AddressList;
+  }
+
+  function getAllocatedAmount() external view returns (uint256[] memory) {
+    return _TokenAmountList;
+  }
+
+  function getProcessedAirdrop(address _address) external view returns (bool) {
+    return _processedAirdrop[_address];
+  }
+}
